@@ -35,7 +35,7 @@ class SimplexMethodSolver(object):
   
     result_x = self.second_phase(new_A, self.b, c, x, basic_indexes, nonbasic_indexes)
     
-    if not all(abs(result_x[-self.m:]) < self.eps):
+    if not all(abs(result_x[-self.m:])   < self.eps):
       raise Exception("This task has no solution, because her restrictions is not compatible")
 
     B = linalg.inv(new_A[:, basic_indexes])
@@ -77,23 +77,23 @@ class SimplexMethodSolver(object):
     except ValueError:
       return -1
 
-  def change_B(self, B, z, s, m):
+  def change_B(self, z, s, m):
     zk = z[s]
     z[s] = -1
     z /= -zk
     M = eye(m)
     M[:, s] = z
-    return dot(M, B)
+    self.B = dot(M, self.B)
 
   def second_phase(self, A, b, c, x, basic_indexes, nonbasic_indexes):
     m, n = A.shape
     basic_a = A[:, basic_indexes]
-    B = linalg.inv(basic_a)
+    self.B = linalg.inv(basic_a)
     while True:
       basic_c = array([c[i] for i in basic_indexes])
 
       #Create potential and estimate vectors
-      u = dot(basic_c, B)
+      u = dot(basic_c, self.B)
       delta = array(subtract(dot(u, A), c))
 
       k = self.get_index([delta[j] < 0 and not self.is_zero(delta[j]) for j in nonbasic_indexes], True)
@@ -101,7 +101,7 @@ class SimplexMethodSolver(object):
         return x
       j0 = nonbasic_indexes[k]
 
-      z = dot(B, A[:, j0])
+      z = dot(self.B, A[:, j0])
 
       if all(z <= self.eps):
         raise ValueError("This task has no solution, because her target function is not limited at plans set")
@@ -119,7 +119,7 @@ class SimplexMethodSolver(object):
 
       basic_indexes[s] = j0
       basic_a[:, s] = A[:, j0]
-      B = self.change_B(B, z, s, m)
+      self.change_B(z, s, m)
 
       nonbasic_indexes[k] = index_tetta0
 

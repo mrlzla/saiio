@@ -20,6 +20,11 @@ class DualSimplexMethodSolver(object):
   def init_indexes(self):
     if self.basic_indexes is None:
       plan = SimplexMethodSolver(self.A, self.b, self.c).first_phase()
+      self.A = plan.A
+      self.b = plan.b
+      self.c = plan.c
+      self.m = plan.m
+      self.n = plan.n
       self.basic_indexes = plan.basic_indexes
       self.nonbasic_indexes = plan.nonbasic_indexes
 

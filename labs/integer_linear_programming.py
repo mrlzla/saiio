@@ -1,9 +1,10 @@
 from numpy import *
 from dual_simplex_method import DualSimplexMethodSolver
+from simplex_method import SimplexMethodSolver
 from math import floor
 
 class IntegerLinearProgrammingSolver(object):
-  def __init__(self, A, b, c, d_low, d_high):
+  def __init__(self, A, b, c, d_low = None, d_high = None):
     self.A = A
     self.b = b
     self.c = c
@@ -13,6 +14,9 @@ class IntegerLinearProgrammingSolver(object):
     self.has_solution = False
     self.optimal_cost = -inf
     self.eps = 0.000001
+
+  def is_integer(self, val):
+    return abs(round(val) - val) < self.eps
 
   def is_integers(self, x):
     round_x = array([round(el) for el in x])
@@ -55,16 +59,62 @@ class IntegerLinearProgrammingSolver(object):
     else:
       raise ValueError("This task has no solution.")
 
+  def change_params(self, res):
+    self.A = res.A
+    self.B = res.B
+    self.b = res.b
+    self.c = res.c
+    self.basic_indexes = res.basic_indexes
+    self.nonbasic_indexes = res.nonbasic_indexes
+    self.n = res.n
+    self.m = res.m
+    self.x = res.x
+
+  def create_y(self):
+    i0 = self.get_index_of_first_float(self.x)
+    ji0 = self.basic_indexes.index(i0)
+    return dot(eye(self.m)[:, ji0], self.B)
+
+  def change_A(self, y):
+    alpha = dot(y, self.A)
+    alpha = array([round(el) if self.is_integer(el) else el for el in alpha])
+    alpha = array([el - floor(el) for el in alpha])
+    self.A = vstack([self.A, alpha])
+    column = -eye(self.m + 1)[:, self.m]
+    self.A = hstack([self.A, column.reshape(self.m + 1, 1)])
+
+  def change_b(self, y):
+    betta = dot(y, self.b)
+    betta = betta - floor(betta)
+    self.b = append(self.b, [betta])      
+
+  def change_c(self):
+    self.c = append(self.c, [0])
+
+  def change_restrictions(self, y):
+    self.change_A(y)
+    self.change_b(y)
+    self.change_c()
+    self.m += 1
+    self.n += 1
+
+  def the_gomori_method(self):
+    while True:
+      res = SimplexMethodSolver(self.A, self.b, self.c).solve()
+      self.change_params(res)
+      if(self.is_integers(self.x)):
+        return self
+      y = self.create_y()
+      self.change_restrictions(y)
+
 if __name__ == "__main__":
   A = array([
-    array([1, 0, 1, 0, 0, 1], dtype=float64),
-    array([1, 2, -1, 1, 1, 2], dtype=float64),
-    array([-2, 4, 1, 0, 1, 0], dtype=float64),
+    array([7, 4, 1], dtype=float64),
   ])
-  b = array([-3, 3, 13], dtype=float)
-  c = array([-3, 2, 0, -2, -5, 2], dtype=float64)
-  d_low = array([-2, -1, -2, 0, 1, -4], dtype=float64)
-  d_high = array([2, 3, 1, 5, 4, -1], dtype=float64)
-  x0 = IntegerLinearProgrammingSolver(A, b, c, d_low, d_high).the_branch_and_bound_method()
-  print x0
-  print dot(c, x0)
+  b = array([13], dtype=float64)
+  c = array([21, 11, 0], dtype=float64)
+  d_low = array([0, 0, 0], dtype=float64)
+  d_high = array([inf, inf, inf], dtype=float64)
+  x0 = IntegerLinearProgrammingSolver(A, b, c, d_low, d_high).the_gomori_method()
+  print x0.x
+  print dot(x0.c, x0.x)
